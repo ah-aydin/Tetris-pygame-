@@ -45,9 +45,11 @@ class Piece():
             pygame.draw.rect(surface, self.color, rect)
 
 def move_piece(piece):
+    # TODO check if the piece has landed
     piece.y += 1
 
 def get_input(piece):
+    # TODO add logic to check weather the piece can be moved/rotated
     global speed
     keys = pygame.key.get_pressed()
     if keys[pygame.K_RIGHT]:
