@@ -9,19 +9,23 @@ from shape import S, Z, I, O, J, L, T, shapes, shape_colors
 # Initializations
 pygame.init()
 pygame.font.init()
+game_font = pygame.font.SysFont('Game font', 30)
 rnd.seed(int(time.time())) # In order to not have the same pattern every game
 
 LEVEL = 3
 FPS = [48, 34, 24, 17, 10, 2]
+
+COLUMN_COUNT = 10
+ROW_COUNT = 20
 
 # Display variables
 WIDTH = 1000
 HEIGHT = 800
 PLAY_HEIGHT = HEIGHT
 PLAY_WIDTH = PLAY_HEIGHT // 2
-BLOCK_SIZE = PLAY_HEIGHT // 20
+BLOCK_SIZE = PLAY_HEIGHT // ROW_COUNT
 DELTA = (WIDTH - PLAY_WIDTH) // 2
-DRAW_GRID = True # Weather to draw the grid or not
+DRAW_GRID = False # Weather to draw the grid or not
 DRAW_OUTLINE = not DRAW_GRID # If the grid wont be drawn, each square will have an outline
 
 # COLORS
@@ -48,7 +52,7 @@ class Piece():
         for coord in s:
             rect = (DELTA + (self.x+coord[0])*BLOCK_SIZE, (self.y-coord[1])*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
             pygame.draw.rect(surface, self.color, rect)
-            if DRAW_OUTLINE == True:
+            if DRAW_OUTLINE:
                 pygame.draw.line(surface, WHITE, (rect[0], rect[1]), (rect[0], rect[1] + BLOCK_SIZE))
                 pygame.draw.line(surface, WHITE, (rect[0], rect[1]), (rect[0] + BLOCK_SIZE, rect[1]))
                 pygame.draw.line(surface, WHITE, (rect[0]+BLOCK_SIZE, rect[1]), (rect[0]+BLOCK_SIZE, rect[1]+BLOCK_SIZE))
@@ -57,7 +61,7 @@ class Piece():
 def get_piece():
     return Piece(5, 2, rnd.choice(shapes)) # TODO change the y back to 0 when the bug at out_of_bound has been solved
 
-def move_piece(piece, table):
+def drop_piece(piece, table):
     global filled_pos
 
     piece.y += 1
@@ -67,14 +71,16 @@ def move_piece(piece, table):
             filled_pos[(piece.x + coord[0], piece.y - coord[1])] = piece.color
         return False
     return True
-        
+
+# Checks if the piece is going out of bounds    
 def out_of_bounds(piece):
     # Check all the parts of the piece
-    for coord in piece.get_shape_rot():
-        if piece.y-coord[1] >= 20 or piece.x+coord[0] < 0 or piece.x+coord[0] >= 10:
+    for coord in piece.get_shape_rot(): # TODO fix bug when piece is at the top of the playspace
+        if piece.y-coord[1] >= ROW_COUNT or piece.x+coord[0] < 0 or piece.x+coord[0] >= COLUMN_COUNT:
             return True
     return False
 
+# Checks if the piece is colliding with anything inside the table
 def collision_table(piece, table):
     for coord in piece.get_shape_rot():
         pos = (piece.x + coord[0], piece.y - coord[1])
@@ -82,6 +88,7 @@ def collision_table(piece, table):
             return True
     return False
 
+# Checks if  the piece can move to the given position
 def pos_available(piece, table):
     
     # First check if it is out of bounds
@@ -93,7 +100,6 @@ def pos_available(piece, table):
     # Other wise
     return True
     
-
 def get_input(piece, table):
 
     global speed
@@ -107,15 +113,56 @@ def get_input(piece, table):
         if not pos_available(piece, table):
             piece.x += 1
     if keys[pygame.K_DOWN]:
-        speed = 2
+        speed = 3
     if keys[pygame.K_UP]:
         piece.rotation += 1
         if not pos_available(piece, table): # TODO if possible add movement to the piece in order to fit it with rotation
             piece.rotation -= 1
 
+def remove_row(table, row_to_remove, filled_pos):
+
+    # Remove all the filled position above and including row_to_remove
+    for row in range(0, row_to_remove+1):
+        for col in range(COLUMN_COUNT):
+            if (col, row) in filled_pos:
+                filled_pos.pop((col, row))
+
+    # Shift each row above the row_to_remove downwards by one
+    for row in range(row_to_remove, 0, -1): 
+        for col in range(COLUMN_COUNT):
+            table[row][col] = table[row-1][col]
+    
+    # Add the new filled positions to filled_pos
+    for row in range(row_to_remove, 0, -1):
+        for col in range(COLUMN_COUNT):
+            if table[row][col] != BLACK:
+                filled_pos[(col, row)] = table[row][col]
+    return table, filled_pos
+
+def check_lines(table, filled_pos):
+
+    for row in range(ROW_COUNT):
+        full_row = True
+        for col in range(COLUMN_COUNT):
+            if table[row][col] == BLACK:
+                full_row = False
+                break
+        if full_row:
+            table, filled_pos = remove_row(table, row, filled_pos)
+    return table, filled_pos
+
+def get_table(filled_pos={}): # filled_pos will contain position-color pairs
+
+    table = [[BLACK for x in range(COLUMN_COUNT)]  for y in range(ROW_COUNT)]
+    for row in range(ROW_COUNT):
+        for col in range(COLUMN_COUNT):
+            if (col, row) in filled_pos:
+                table[row][col] = filled_pos[(col, row)]
+    return table
+
 def draw_play_area(surface):
     
-    if DRAW_GRID == True:
+    if DRAW_GRID:
         pos_x = DELTA
         for x in range(9):
             pos_x += BLOCK_SIZE
@@ -128,69 +175,41 @@ def draw_play_area(surface):
     pygame.draw.line(surface, RED, (WIDTH - DELTA, 0), (WIDTH - DELTA, PLAY_HEIGHT), 4)
     pygame.draw.line(surface, RED, (DELTA, PLAY_HEIGHT), (WIDTH - DELTA, PLAY_HEIGHT), 4)
 
-def get_table(filled_pos={}): # filled_pos will contain key-value pairs which are composed of position-color
-
-    table = [[BLACK for x in range(10)]  for y in range(20)]
-    for row in range(20):
-        for col in range(10):
-            if (col, row) in filled_pos:
-                table[row][col] = filled_pos[(col, row)]
-    return table
-
-def draw_table(surface, grid):
+def draw_table(surface, table):
     
     pos_y = 0
-    for row in range(20):
+    for row in range(ROW_COUNT):
         pos_x = DELTA
-        for col in range(10):
+        for col in range(COLUMN_COUNT):
             rect = (pos_x, pos_y, BLOCK_SIZE, BLOCK_SIZE)
-            pygame.draw.rect(surface, grid[row][col], rect)
+            pygame.draw.rect(surface, table[row][col], rect)
+            if DRAW_OUTLINE and table[row][col] != BLACK:
+                pygame.draw.line(surface, WHITE, (pos_x, pos_y), (pos_x+BLOCK_SIZE, pos_y))
+                pygame.draw.line(surface, WHITE, (pos_x, pos_y), (pos_x, pos_y+BLOCK_SIZE))
+                pygame.draw.line(surface, WHITE, (pos_x+BLOCK_SIZE, pos_y), (pos_x+BLOCK_SIZE, pos_y+BLOCK_SIZE))
+                pygame.draw.line(surface, WHITE, (pos_x, pos_y+BLOCK_SIZE), (pos_x+BLOCK_SIZE, pos_y+BLOCK_SIZE))
             pos_x += BLOCK_SIZE
         pos_y += BLOCK_SIZE
 
-def update_display(surface, current_piece, table):
+def text_render(surface):
+    
+    next_piece_text = "Next piece:"
+    size = game_font.size(next_piece_text)
+    next_piece_text_render = game_font.render(next_piece_text, True, WHITE)
+    surface.blit(next_piece_text_render, (WIDTH - DELTA//2 - size[0]//2, HEIGHT//3))
+
+def update_display(surface, current_piece, next_piece, table):
 
     surface.fill(BLACK) # Clear the display
+
+    text_render(surface) # Render game text
+    next_piece.render(surface)
 
     draw_table(surface, table) # Draws the currently placed pieces
     current_piece.render(surface) # Render the current piece
     draw_play_area(surface) # Draw the play area
 
     pygame.display.update()
-
-def remove_row(table, row_to_remove, filled_pos):
-
-    # Remove all the filled position above and including row_to_remove
-    for row in range(0, row_to_remove+1):
-        for col in range(10):
-            if (col, row) in filled_pos:
-                filled_pos.pop((col, row))
-
-    # Shift each row above the row_to_remove downwards by one
-    for row in range(row_to_remove, 0, -1): 
-        for col in range(10):
-            table[row][col] = table[row-1][col]
-    
-    # Add the new filled positions to filled_pos
-    for row in range(row_to_remove, 0, -1):
-        for col in range(10):
-            if table[row][col] != BLACK:
-                filled_pos[(col, row)] = table[row][col]
-    return table, filled_pos
-    
-
-
-def check_lines(table, filled_pos):
-
-    for row in range(20):
-        full_row = True
-        for col in range(10):
-            if table[row][col] == BLACK:
-                full_row = False
-                break
-        if full_row:
-            table, filled_pos = remove_row(table, row, filled_pos)
-    return table, filled_pos
 
 def main(surface):
 
@@ -201,6 +220,8 @@ def main(surface):
 
     current_piece = get_piece()
     next_piece = get_piece()
+    next_piece.x = 13
+    next_piece.y = 10
     clock = pygame.time.Clock()
     frame = 0
 
@@ -221,11 +242,15 @@ def main(surface):
         table = get_table(filled_pos)
         table, filled_pos = check_lines(table, filled_pos)
         if frame > FPS[LEVEL] // speed: # After every FPS[LEVEL]'th frame move the piece downwards
-            if move_piece(current_piece, table) == False: # If the piece cannot be moved then get the next one
+            if drop_piece(current_piece, table) == False: # If the piece cannot be moved then get the next one
+                next_piece.x = 5
+                next_piece.y = 2
                 current_piece = next_piece
                 next_piece = get_piece()
+                next_piece.x = 13
+                next_piece.y = 10
             frame = 0
-        update_display(surface, current_piece, table)
+        update_display(surface, current_piece, next_piece, table)
 
 
 def main_menu():
