@@ -12,7 +12,7 @@ pygame.font.init()
 rnd.seed(int(time.time()))
 
 LEVEL = 3
-FPS = [48, 34, 24, 10, 2]
+FPS = [48, 34, 24, 17, 10, 2]
 
 # Display variables
 WIDTH = 1000
@@ -38,9 +38,12 @@ class Piece():
         self.color = shape_colors[shapes.index(shape)]
         self.rotation = 0
     
+    def get_shape_rot(self):
+        return self.shape[self.rotation % len(self.shape)]
+
     def render(self, surface):
         # Current shape according to rotation
-        s = self.shape[self.rotation % len(self.shape)]
+        s = self.get_shape_rot()
         for coord in s:
             rect = (DELTA + (self.x+coord[0])*BLOCK_SIZE, (self.y-coord[1])*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
             pygame.draw.rect(surface, self.color, rect)
@@ -53,9 +56,31 @@ class Piece():
 def get_piece():
     return Piece(5, 0, rnd.choice(shapes))
 
-def move_piece(piece):
+def move_piece(piece, table):
     # TODO check if the piece has landed
+    global filled_pos
+
     piece.y += 1
+    if check_pos_validity(piece, table) == True: # In this case it can't go down any more so the next piece follows
+        piece.y -= 1
+        for coord in piece.get_shape_rot():
+            filled_pos[(piece.x + coord[0], piece.y - coord[1])] = piece.color
+        return False
+    return True
+        
+def out_of_bounds(piece):
+    for coord in piece.get_shape_rot():
+        if piece.y-coord[1] >= 20 or piece.x+coord[0] < 0 or piece.x+coord[0] >= 10:
+            return True
+
+    return False
+
+def check_pos_validity(piece, table):
+    
+    # First check if it is out of bounds
+    if out_of_bounds(piece):
+        return True
+    
 
 def get_input(piece):
     # TODO add logic to check weather the piece can be moved/rotated
@@ -87,12 +112,12 @@ def draw_play_area(surface):
 
 def get_table(filled_pos={}): # filled_pos will contain key-value pairs which are composed of position-color
 
-    grid = [[BLACK for x in range(10)]  for x in range(20)]
+    table = [[BLACK for x in range(10)]  for x in range(20)]
     for row in range(20):
         for col in range(10):
             if (col, row) in filled_pos:
-                grid[row][col] = filled_pos[(col, row)]
-    return grid
+                table[row][col] = filled_pos[(col, row)]
+    return table
 
 def draw_table(surface, grid):
     
@@ -105,11 +130,11 @@ def draw_table(surface, grid):
             pos_x += BLOCK_SIZE
         pos_y += BLOCK_SIZE
 
-def update_display(surface, current_piece, filled_pos):
+def update_display(surface, current_piece, table):
 
     surface.fill(BLACK) # Clear the display
 
-    draw_table(surface, get_table(filled_pos)) # Draws the currently placed pieces
+    draw_table(surface, table) # Draws the currently placed pieces
     
     current_piece.render(surface)
 
@@ -126,6 +151,7 @@ def main(surface):
     game_over = False
 
     current_piece = get_piece()
+    next_piece = get_piece()
     clock = pygame.time.Clock()
     frame = 0
 
@@ -143,10 +169,13 @@ def main(surface):
                 if event.key == pygame.K_DOWN:
                     speed = 1
         
+        table = get_table(filled_pos)
         if frame > FPS[LEVEL] // speed: # After every FPS[LEVEL]'th frame move the piece downwards
-            move_piece(current_piece)
+            if move_piece(current_piece, table) == False:
+                current_piece = next_piece
+                next_piece = get_piece()
             frame = 0
-        update_display(surface, current_piece, filled_pos)
+        update_display(surface, current_piece, table)
 
 
 def main_menu():
