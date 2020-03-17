@@ -11,7 +11,7 @@ pygame.init()
 pygame.font.init()
 rnd.seed(int(time.time()))
 
-LEVEL = 1
+LEVEL = 3
 FPS = [48, 34, 24, 10, 2]
 
 # Display variables
@@ -21,7 +21,8 @@ PLAY_HEIGHT = HEIGHT
 PLAY_WIDTH = PLAY_HEIGHT // 2
 BLOCK_SIZE = PLAY_HEIGHT // 20
 DELTA = (WIDTH - PLAY_WIDTH) // 2
-DRAW_GRID = True
+DRAW_GRID = False # Weather to draw the grid or not
+DRAW_OUTLINE = not DRAW_GRID # If the grid wont be drawn, each square will have an outline
 
 # COLORS
 BLACK = (0,0,0)
@@ -43,6 +44,14 @@ class Piece():
         for coord in s:
             rect = (DELTA + (self.x+coord[0])*BLOCK_SIZE, (self.y-coord[1])*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
             pygame.draw.rect(surface, self.color, rect)
+            if DRAW_OUTLINE == True:
+                pygame.draw.line(surface, WHITE, (rect[0], rect[1]), (rect[0], rect[1] + BLOCK_SIZE))
+                pygame.draw.line(surface, WHITE, (rect[0], rect[1]), (rect[0] + BLOCK_SIZE, rect[1]))
+                pygame.draw.line(surface, WHITE, (rect[0]+BLOCK_SIZE, rect[1]), (rect[0]+BLOCK_SIZE, rect[1]+BLOCK_SIZE))
+                pygame.draw.line(surface, WHITE, (rect[0], rect[1]+BLOCK_SIZE), (rect[0]+BLOCK_SIZE, rect[1]+BLOCK_SIZE))
+
+def get_piece():
+    return Piece(5, 0, rnd.choice(shapes))
 
 def move_piece(piece):
     # TODO check if the piece has landed
@@ -61,46 +70,68 @@ def get_input(piece):
     if keys[pygame.K_UP]:
         piece.rotation += 1
 
-def draw_play_are(surface):
+def draw_play_area(surface):
     
     if DRAW_GRID == True:
-        dx = DELTA
+        pos_x = DELTA
         for x in range(9):
-            dx += BLOCK_SIZE
-            pygame.draw.line(surface, WHITE, (dx, 0), (dx, PLAY_HEIGHT))
-        dy = 0
+            pos_x += BLOCK_SIZE
+            pygame.draw.line(surface, WHITE, (pos_x, 0), (pos_x, PLAY_HEIGHT))
+        pos_y = 0
         for y in range(19):
-            dy += BLOCK_SIZE
-            pygame.draw.line(surface, WHITE, (DELTA, dy), (WIDTH - DELTA, dy))
+            pos_y += BLOCK_SIZE
+            pygame.draw.line(surface, WHITE, (DELTA, pos_y), (WIDTH - DELTA, pos_y))
     pygame.draw.line(surface, RED, (DELTA, 0), (DELTA, PLAY_HEIGHT), 4)
     pygame.draw.line(surface, RED, (WIDTH - DELTA, 0), (WIDTH - DELTA, PLAY_HEIGHT), 4)
     pygame.draw.line(surface, RED, (DELTA, PLAY_HEIGHT), (WIDTH - DELTA, PLAY_HEIGHT), 4)
 
-def update_display(surface, current_piece):
+def get_table(filled_pos={}): # filled_pos will contain key-value pairs which are composed of position-color
+
+    grid = [[BLACK for x in range(10)]  for x in range(20)]
+    for row in range(20):
+        for col in range(10):
+            if (col, row) in filled_pos:
+                grid[row][col] = filled_pos[(col, row)]
+    return grid
+
+def draw_table(surface, grid):
+    
+    pos_y = 0
+    for row in range(20):
+        pos_x = DELTA
+        for col in range(10):
+            rect = (pos_x, pos_y, BLOCK_SIZE, BLOCK_SIZE)
+            pygame.draw.rect(surface, grid[row][col], rect)
+            pos_x += BLOCK_SIZE
+        pos_y += BLOCK_SIZE
+
+def update_display(surface, current_piece, filled_pos):
 
     surface.fill(BLACK) # Clear the display
 
+    draw_table(surface, get_table(filled_pos)) # Draws the currently placed pieces
+    
     current_piece.render(surface)
 
-    draw_play_are(surface)
+    draw_play_area(surface)
 
     pygame.display.update()
 
 
 def main(surface):
 
-    global game_over
-    global speed
+    global game_over, speed, filled_pos
+    filled_pos = {}
     speed = 1
     game_over = False
 
-    current_piece = Piece(5, 0, T)
+    current_piece = get_piece()
     clock = pygame.time.Clock()
     frame = 0
 
     while not game_over:
 
-        clock.tick(60) # Set the frame rate
+        clock.tick(60) # Lock the frame rate at 60fps
         frame += 1
 
         for event in pygame.event.get():
@@ -115,7 +146,7 @@ def main(surface):
         if frame > FPS[LEVEL] // speed: # After every FPS[LEVEL]'th frame move the piece downwards
             move_piece(current_piece)
             frame = 0
-        update_display(surface, current_piece)
+        update_display(surface, current_piece, filled_pos)
 
 
 def main_menu():
