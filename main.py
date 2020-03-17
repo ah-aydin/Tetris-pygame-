@@ -32,6 +32,8 @@ DRAW_OUTLINE = not DRAW_GRID # If the grid wont be drawn, each square will have 
 BLACK = (0,0,0)
 RED = (255,0,0)
 WHITE = (255,255,255)
+TURCUAZ = (64,224,208)
+LILA = (124, 234, 2 )
 
 class Piece():
 
@@ -59,7 +61,7 @@ class Piece():
                 pygame.draw.line(surface, WHITE, (rect[0], rect[1]+BLOCK_SIZE), (rect[0]+BLOCK_SIZE, rect[1]+BLOCK_SIZE))
 
 def get_piece():
-    return Piece(5, 2, rnd.choice(shapes)) # TODO change the y back to 0 when the bug at out_of_bound has been solved
+    return Piece(5, -2, rnd.choice(shapes))
 
 def drop_piece(piece, table):
     global filled_pos
@@ -75,7 +77,7 @@ def drop_piece(piece, table):
 # Checks if the piece is going out of bounds    
 def out_of_bounds(piece):
     # Check all the parts of the piece
-    for coord in piece.get_shape_rot(): # TODO fix bug when piece is at the top of the playspace
+    for coord in piece.get_shape_rot():
         if piece.y-coord[1] >= ROW_COUNT or piece.x+coord[0] < 0 or piece.x+coord[0] >= COLUMN_COUNT:
             return True
     return False
@@ -84,6 +86,8 @@ def out_of_bounds(piece):
 def collision_table(piece, table):
     for coord in piece.get_shape_rot():
         pos = (piece.x + coord[0], piece.y - coord[1])
+        if pos[0] < 0 or pos[1] < 0:
+            continue
         if table[pos[1]][pos[0]] != BLACK:
             return True
     return False
@@ -116,8 +120,32 @@ def get_input(piece, table):
         speed = 3
     if keys[pygame.K_UP]:
         piece.rotation += 1
-        if not pos_available(piece, table): # TODO if possible add movement to the piece in order to fit it with rotation
+        if not pos_available(piece, table):
             piece.rotation -= 1
+
+            piece.x += 1
+            piece.rotation += 1
+            if not pos_available(piece, table):
+                piece.x -= 1
+                piece.rotation -=1
+
+                piece.x -= 1
+                piece.rotation += 1
+                if not pos_available(piece, table):
+                    piece.x += 1
+                    piece.rotation -= 1
+
+                    piece.x += 2
+                    piece.rotation +=1
+                    if not pos_available(piece, table):
+                        piece.x -= 2
+                        piece.rotation -= 1
+
+                        piece.x -= 2
+                        piece.rotation += 1
+                        if not pos_available(piece, table):
+                            piece.x += 2
+                            piece.rotation -= 1     
 
 def remove_row(table, row_to_remove, filled_pos):
 
@@ -151,6 +179,12 @@ def check_lines(table, filled_pos):
             table, filled_pos = remove_row(table, row, filled_pos)
     return table, filled_pos
 
+def is_game_over(row):
+    for color in row:
+        if color != BLACK:
+            return True
+    return False
+
 def get_table(filled_pos={}): # filled_pos will contain position-color pairs
 
     table = [[BLACK for x in range(COLUMN_COUNT)]  for y in range(ROW_COUNT)]
@@ -171,9 +205,9 @@ def draw_play_area(surface):
         for y in range(19):
             pos_y += BLOCK_SIZE
             pygame.draw.line(surface, WHITE, (DELTA, pos_y), (WIDTH - DELTA, pos_y))
-    pygame.draw.line(surface, RED, (DELTA, 0), (DELTA, PLAY_HEIGHT), 4)
-    pygame.draw.line(surface, RED, (WIDTH - DELTA, 0), (WIDTH - DELTA, PLAY_HEIGHT), 4)
-    pygame.draw.line(surface, RED, (DELTA, PLAY_HEIGHT), (WIDTH - DELTA, PLAY_HEIGHT), 4)
+    pygame.draw.line(surface, LILA, (DELTA, 0), (DELTA, PLAY_HEIGHT), 4)
+    pygame.draw.line(surface, LILA, (WIDTH - DELTA, 0), (WIDTH - DELTA, PLAY_HEIGHT), 4)
+    pygame.draw.line(surface, LILA, (DELTA, PLAY_HEIGHT), (WIDTH - DELTA, PLAY_HEIGHT), 4)
 
 def draw_table(surface, table):
     
@@ -240,18 +274,19 @@ def main(surface):
                     speed = 1
         
         table = get_table(filled_pos)
+        if is_game_over(table[0]):
+            game_over = True
         table, filled_pos = check_lines(table, filled_pos)
-        if frame > FPS[LEVEL] // speed: # After every FPS[LEVEL]'th frame move the piece downwards
+        if frame >= FPS[LEVEL] // speed: # After every FPS[LEVEL]'th frame move the piece downwards
             if drop_piece(current_piece, table) == False: # If the piece cannot be moved then get the next one
                 next_piece.x = 5
-                next_piece.y = 2
+                next_piece.y = 0
                 current_piece = next_piece
                 next_piece = get_piece()
                 next_piece.x = 13
                 next_piece.y = 10
             frame = 0
         update_display(surface, current_piece, next_piece, table)
-
 
 def main_menu():
     
@@ -262,7 +297,7 @@ def main_menu():
     menu_text = 'PRESS ANY KEY TO START'
     menu_surface = menu_font.render(menu_text, 1, WHITE)
     text_size = menu_font.size(menu_text)
-    window.blit(menu_surface, (WIDTH//2 - text_size[0]//2, HEIGHT//2 + text_size[1]//2))
+    window.blit(menu_surface, (WIDTH//2 - text_size[0]//2, HEIGHT//2 - text_size[1]//2))
     pygame.display.update()
 
     in_menu = True
