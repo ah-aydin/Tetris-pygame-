@@ -3,6 +3,7 @@
 import pygame
 import random as rnd
 import time
+import os
 
 from shape import S, Z, I, O, J, L, T, shapes, shape_colors
 
@@ -35,6 +36,7 @@ DRAW_OUTLINE = not DRAW_GRID # If the grid wont be drawn, each square will have 
 BLACK = (0,0,0)
 RED = (255,0,0)
 WHITE = (255,255,255)
+GOLD = (255,223,0)
 
 class Piece():
 
@@ -283,7 +285,6 @@ def main(surface):
     current_piece = get_piece()
     next_piece = get_piece()
     next_piece_clone = Piece(550//BLOCK_SIZE, (HEIGHT//3+125)//BLOCK_SIZE, next_piece.shape)
-    next_piece_clone.rotation += 1
     
     row_remove_count = 0
     clock = pygame.time.Clock()
@@ -324,20 +325,60 @@ def main(surface):
                 current_piece = next_piece
                 next_piece = get_piece()
                 next_piece_clone = Piece(550//BLOCK_SIZE, (HEIGHT//3+125)//BLOCK_SIZE, next_piece.shape)
-                next_piece_clone.rotation += 1
             frame = 0
         update_display(surface, current_piece, next_piece_clone, table)
 
+def update_high_score(score):
+
+    if os.path.exists('high_score.txt'):
+        file = open('high_score.txt', 'r')
+        h_score = file.read()
+        file.close()
+        if score > int(h_score):
+            file = open('high_score.txt', 'w')
+            file.write(str(score))
+            file.close()
+            return True
+        else:
+            return False
+    file = open('high_score.txt', 'w')
+    file.write(str(score))
+    file.close()
+    return True
+
 def game_over_menu(window):
-    
+
+    global score
+
     window.fill(BLACK)
 
-    menu_font = pygame.font.SysFont('menu', 30, True)
-    menu_text = ('PRESS \'SPACE\' TO PLAY AGAIN\n'+
-                 '     PRESS \'Q\' TO QUIT     ')
-    menu_render = menu_font.render(menu_text, 1, WHITE)
-    text_size = menu_font.size(menu_text)
-    window.blit(menu_render, (WIDTH//2 - text_size[0]//2, HEIGHT//2 - text_size[1]//2))
+    menu_font = pygame.font.SysFont('menu', 45, True)
+
+    menu_text1 = 'PRESS \'SPACE\' TO PLAY AGAIN'
+    menu_text2 = '     PRESS \'Q\' TO QUIT     '
+    menu_text3 = ''
+    c = WHITE
+    if update_high_score(score) == True:
+        menu_text3 = 'NEW HIGH SCORE: {}'.format(score)
+        c = GOLD
+    else:
+        file = open('high_score.txt', 'r')
+        menu_text3 = 'SCORE: {} | HIGH SCORE: {}'.format(score, file.read())
+        file.close()
+        c = WHITE
+
+    menu_render1 = menu_font.render(menu_text1, 1, WHITE)
+    menu_render2 = menu_font.render(menu_text2, 1, WHITE)
+    menu_redner3 = menu_font.render(menu_text3, 1, c)
+
+    text_size1 = menu_font.size(menu_text1)
+    text_size2 = menu_font.size(menu_text2)
+    text_size3 = menu_font.size(menu_text3)
+
+    window.blit(menu_render1, (WIDTH//2 - text_size1[0]//2, HEIGHT//2 - text_size1[1]//2))
+    window.blit(menu_render2, (WIDTH//2 - text_size2[0]//2, HEIGHT//2 - text_size2[1]//2 + text_size1[1]))
+    window.blit(menu_redner3, (WIDTH//2 - text_size3[0]//2, HEIGHT//2 - text_size3[1]//2 + text_size1[1] + text_size2[1]))
+
     pygame.display.update()
 
     in_menu = True
