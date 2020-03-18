@@ -268,9 +268,14 @@ def update_display(surface, current_piece, next_piece, table):
 
     pygame.display.update()
 
+
+
 def main(surface):
 
-    global game_over, speed, filled_pos, LEVEL
+    global game_over, speed, filled_pos, LEVEL, score
+
+    LEVEL = 0
+    score = 0
     filled_pos = {}
     speed = 1
     game_over = False
@@ -279,12 +284,12 @@ def main(surface):
     next_piece = get_piece()
     next_piece_clone = Piece(550//BLOCK_SIZE, (HEIGHT//3+125)//BLOCK_SIZE, next_piece.shape)
     next_piece_clone.rotation += 1
-    #next_piece.x = 13
-    #next_piece.y = 10
+    
     row_remove_count = 0
     clock = pygame.time.Clock()
     frame = 0
 
+    # Game loop
     while not game_over:
 
         clock.tick(60) # Lock the frame rate at 60fps
@@ -292,7 +297,8 @@ def main(surface):
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                game_over = True
+                pygame.quit()
+                exit()
             if event.type == pygame.KEYDOWN:
                 get_input(current_piece, table)
             if event.type == pygame.KEYUP:
@@ -315,27 +321,55 @@ def main(surface):
         if frame >= FPS[LEVEL] // speed:
             # If the piece cannot be moved then get the next one
             if drop_piece(current_piece, table) == False:
-                #next_piece.x = 5
-                #next_piece.y = 0
                 current_piece = next_piece
                 next_piece = get_piece()
                 next_piece_clone = Piece(550//BLOCK_SIZE, (HEIGHT//3+125)//BLOCK_SIZE, next_piece.shape)
                 next_piece_clone.rotation += 1
-                #next_piece.x = 13
-                #next_piece.y = 10
             frame = 0
         update_display(surface, current_piece, next_piece_clone, table)
+
+def game_over_menu(window):
+    
+    window.fill(BLACK)
+
+    menu_font = pygame.font.SysFont('menu', 30, True)
+    menu_text = ('PRESS \'SPACE\' TO PLAY AGAIN\n'+
+                 '     PRESS \'Q\' TO QUIT     ')
+    menu_render = menu_font.render(menu_text, 1, WHITE)
+    text_size = menu_font.size(menu_text)
+    window.blit(menu_render, (WIDTH//2 - text_size[0]//2, HEIGHT//2 - text_size[1]//2))
+    pygame.display.update()
+
+    in_menu = True
+    play = False
+    while in_menu:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    play = True
+                    in_menu = False
+                if event.key == pygame.K_q:
+                    play = False
+                    in_menu = False
+
+    if play:
+        main_menu()
 
 def main_menu():
     
     window = pygame.display.set_mode((WIDTH, HEIGHT))
 
+    window.fill(BLACK)
+
     # Display menu text
     menu_font = pygame.font.SysFont('menu', 80, True)
     menu_text = 'PRESS ANY KEY TO START'
-    menu_surface = menu_font.render(menu_text, 1, WHITE)
+    menu_render = menu_font.render(menu_text, 1, WHITE)
     text_size = menu_font.size(menu_text)
-    window.blit(menu_surface, (WIDTH//2 - text_size[0]//2, HEIGHT//2 - text_size[1]//2))
+    window.blit(menu_render, (WIDTH//2 - text_size[0]//2, HEIGHT//2 - text_size[1]//2))
     pygame.display.update()
 
     in_menu = True
@@ -349,7 +383,7 @@ def main_menu():
     # Run the game
     main(window)
 
-    # game_over_menu(window)
+    game_over_menu(window)
 
 if __name__ == '__main__':
     main_menu()
