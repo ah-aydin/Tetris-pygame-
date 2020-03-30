@@ -189,7 +189,7 @@ def check_lines(table, filled_pos, removed_row_count):
     if rrc != 0:
         update_score(rrc, filled_pos)
     removed_row_count += rrc
-    return table, filled_pos, removed_row_count, rrc
+    return table, filled_pos, removed_row_count
 
 def is_game_over(row):
     for color in row:
@@ -310,8 +310,7 @@ def main(surface):
         if is_game_over(table[0]):
             game_over = True
         
-        rrc = 0
-        table, filled_pos, row_remove_count, rrc = check_lines(table, filled_pos, row_remove_count)
+        table, filled_pos, row_remove_count = check_lines(table, filled_pos, row_remove_count)
 
         # Update the level
         if row_remove_count >= 10:
